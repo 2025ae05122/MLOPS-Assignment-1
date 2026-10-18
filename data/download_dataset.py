@@ -5,7 +5,6 @@ import certifi
 import pandas as pd
 from ucimlrepo import fetch_ucirepo
 
-
 ROOT = Path(__file__).resolve().parents[1]
 RAW_DIRECTORY = ROOT / "data" / "raw"
 RAW_PATH = RAW_DIRECTORY / "heart_disease_raw.csv"
@@ -118,7 +117,7 @@ def download_dataset() -> pd.DataFrame:
     print("Dataset downloaded successfully.")
     print(f"Rows        : {len(dataset)}")
     print(f"Columns     : {dataset.shape[1]}")
-    print(f"Target      : target")
+    print("Target      : target")
     print(f"Saved to    : {RAW_PATH}")
 
     return dataset
