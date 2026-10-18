@@ -1,0 +1,172 @@
+name: Heart Disease MLOps CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-train-test-build-publish:
+    name: Lint, Train, Test, Build and Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Create logs directory
+        run: |
+          mkdir -p logs
+
+      - name: Lint code
+        run: |
+          set -o pipefail
+          ruff check api src data tests | tee logs/lint.log
+
+      - name: Train and package model
+        run: |
+          set -o pipefail
+          python -m src.train | tee logs/training.log
+
+      - name: Verify generated files
+        run: |
+          test -s artifacts/heart_disease_pipeline.joblib
+          test -s artifacts/model_metadata.json
+          test -s data/raw/heart_disease_raw.csv
+          test -s data/processed/heart_disease_cleaned.csv
+
+          python -m json.tool \
+            artifacts/model_metadata.json \
+            > /dev/null
+
+      - name: Run automated tests
+        run: |
+          set -o pipefail
+          pytest -v \
+            --junitxml=logs/pytest-results.xml \
+            --cov-report=xml:logs/coverage.xml \
+            | tee logs/tests.log
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -f docker/Dockerfile \
+            -t heart-disease-api:${{ github.sha }} \
+            .
+
+      - name: Run Docker container
+        run: |
+          docker run -d \
+            --name heart-api \
+            -p 8000:8000 \
+            heart-disease-api:${{ github.sha }}
+
+      - name: Verify health endpoint
+        run: |
+          for attempt in {1..20}; do
+            if curl --fail --silent --show-error \
+              http://localhost:8000/health; then
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          docker logs heart-api
+          exit 1
+
+      - name: Verify prediction endpoint
+        run: |
+          curl --fail --silent --show-error \
+            -X POST \
+            http://localhost:8000/predict \
+            -H "Content-Type: application/json" \
+            --data @sample/sample_request.json
+
+      - name: Verify metrics endpoint
+        run: |
+          curl --fail --silent --show-error \
+            http://localhost:8000/metrics \
+            > logs/metrics.txt
+
+          grep "heart_api_requests_total" logs/metrics.txt
+          grep "heart_api_request_duration_seconds" logs/metrics.txt
+          grep "heart_api_predictions_total" logs/metrics.txt
+
+      - name: Log in to Docker Hub
+        if: >
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag Docker image
+        if: >
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/main'
+        run: |
+          docker tag \
+            heart-disease-api:${{ github.sha }} \
+            ${{ vars.DOCKERHUB_USERNAME }}/heart-disease-api:latest
+
+          docker tag \
+            heart-disease-api:${{ github.sha }} \
+            ${{ vars.DOCKERHUB_USERNAME }}/heart-disease-api:${{ github.sha }}
+
+      - name: Push Docker image to Docker Hub
+        if: >
+          github.event_name != 'pull_request' &&
+          github.ref == 'refs/heads/main'
+        run: |
+          docker push \
+            ${{ vars.DOCKERHUB_USERNAME }}/heart-disease-api:latest
+
+          docker push \
+            ${{ vars.DOCKERHUB_USERNAME }}/heart-disease-api:${{ github.sha }}
+
+      - name: Capture Docker logs
+        if: always()
+        run: |
+          docker logs heart-api \
+            > logs/container.log 2>&1 || true
+
+      - name: Stop Docker container
+        if: always()
+        run: |
+          docker rm -f heart-api || true
+
+      - name: Upload workflow artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heart-disease-run-${{ github.run_number }}
+          path: |
+            artifacts/
+            data/raw/heart_disease_raw.csv
+            data/processed/heart_disease_cleaned.csv
+            logs/
+          if-no-files-found: warn
+          retention-days: 30

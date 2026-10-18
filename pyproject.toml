@@ -1,0 +1,23 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+    "-v",
+    "--cov=api",
+    "--cov=src",
+    "--cov=data",
+    "--cov-report=term-missing"
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+exclude = [
+    "notebooks",
+    "artifacts",
+    "screenshots",
+    "report"
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
