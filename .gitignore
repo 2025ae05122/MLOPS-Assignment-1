@@ -1,36 +1,80 @@
+# macOS
 .DS_Store
 
+# Python cache and compiled files
 __pycache__/
 *.py[cod]
+*$py.class
 
+# Test, lint and coverage output
 .pytest_cache/
 .ruff_cache/
 .coverage
+.coverage.*
 coverage.xml
 htmlcov/
+.pytype/
+.mypy_cache/
 
+# Virtual environments
 .venv/
 venv/
 env/
+ENV/
 
+# Jupyter temporary files
 .ipynb_checkpoints/
 
+# MLflow local storage
 mlflow.db
 mlruns/
 
+# Logs and runtime files
 logs/
 *.log
+*.pid
 
+# Local environment and secrets
 .env
 .env.*
-
-.idea/
-.vscode/
-
-prometheus-data/
-grafana-data/
-
+!.env.example
+.envrc
 *.pem
 *.crt
 *.cer
-.envrc
+*.key
+*.p12
+*.pfx
+
+# IDE files
+.idea/
+.vscode/
+
+# Monitoring runtime data
+prometheus-data/
+grafana-data/
+
+# Generated datasets
+data/raw/*
+!data/raw/.gitkeep
+
+data/processed/*
+!data/processed/.gitkeep
+
+# Generated model artefacts
+artifacts/*
+!artifacts/.gitkeep
+
+# Generated reports, keep only final submitted files
+report/*
+!report/.gitkeep
+!report/final_report.docx
+!report/final_report.pdf
+
+# Temporary Docker files
+docker-compose.override.yml
+
+# Terraform/Kubernetes temporary output if created
+*.tfstate
+*.tfstate.*
+kubernetes/deployment.rendered.yaml
