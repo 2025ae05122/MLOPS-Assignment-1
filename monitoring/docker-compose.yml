@@ -1,9 +1,7 @@
 services:
   heart-api:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-
+    image: docker.io/2025ae05122/heart-disease-api:latest
+    pull_policy: always
     container_name: heart-api
 
     ports:
@@ -24,6 +22,7 @@ services:
 
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
 
     ports:
       - "9090:9090"
@@ -40,7 +39,14 @@ services:
     ports:
       - "3000:3000"
 
+    volumes:
+      - grafana-data:/var/lib/grafana
+
     depends_on:
       - prometheus
 
     restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
